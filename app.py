@@ -13,7 +13,8 @@ def get_image_base64(image_path):
     except Exception:
         return ""
 
-logo_base64 = get_image_base64("parking_logo_flat.png")
+import os
+logo_base64 = get_image_base64(os.path.join(os.path.dirname(__file__), "parking_logo_flat.png"))
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="ParkOS", layout="wide", page_icon="🅿️", initial_sidebar_state="collapsed")
