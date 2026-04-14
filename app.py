@@ -153,7 +153,7 @@ def render_live_parking():
 # ---------- HEADER ----------
 st.markdown(f"""
 <div style="display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.25rem 0 1rem; margin-bottom:2rem; border-bottom:1px solid var(--border);">
-    <img src="data:image/png;base64,{logo_base64}" style="width:56px; height:56px; object-fit:contain; filter:drop-shadow(0 4px 16px rgba(99,102,241,0.4)); flex-shrink:0;">
+    <img src="data:image/png;base64,{logo_base64}" style="width:56px; height:56px; object-fit:contain; filter: brightness(0) saturate(100%) invert(40%) sepia(80%) saturate(500%) hue-rotate(215deg) brightness(95%); flex-shrink:0;">
     <div>
         <div style="font-family:'Outfit',sans-serif; font-size:2.2rem; font-weight:800; color:var(--text-1); line-height:1; letter-spacing:-0.04em;">ParkOS</div>
         <div style="font-family:'Outfit',sans-serif; font-size:0.8rem; color:var(--text-3); font-weight:600; letter-spacing:0.1em; text-transform:uppercase; margin-top:4px;">Faculty Parking Portal</div>
