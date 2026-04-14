@@ -75,8 +75,7 @@ def _get_sensor_state():
 
     zone_a = {f"A{r}{c}": _is_occupied(f"zA{r}{c}") for r in range(1, 4) for c in range(1, 5)}
     zone_b = {f"B{r}{c}": _is_occupied(f"zB{r}{c}") for r in range(1, 5) for c in range(1, 4)}
-    zone_c = {f"C{r}{c}": _is_occupied(f"zC{r}{c}") for r in range(1, 3) for c in range(1, 7)}
-
+    zone_c = {f"C{r}{c}": _is_occupied(f"zC{r}{c}") for r in range(1, 4) for c in range(1, 4)}
     return zone_a, zone_b, zone_c
 
 def _count(zone):
@@ -148,8 +147,8 @@ def render_live_parking():
     with col2:
         st.markdown(_zone_card("Zone B", zone_b, rows=4, cols=3, description="Block 4 × 3"), unsafe_allow_html=True)
     with col3:
-        st.markdown(_zone_card("Zone C", zone_c, rows=2, cols=6, description="Block 2 × 6"), unsafe_allow_html=True)
-
+        st.markdown(_zone_card("Zone C", zone_c, rows=3, cols=3, description="Block 3 × 3"), unsafe_allow_html=True)
+        
 # ---------- HEADER ----------
 st.markdown(f"""
 <div style="display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.25rem 0 1rem; margin-bottom:2rem; border-bottom:1px solid var(--border);">
