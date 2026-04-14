@@ -3,6 +3,8 @@ import hashlib
 import time as _time
 from streamlit_autorefresh import st_autorefresh
 import base64
+import os
+from supabase import create_client, Client
 
 # ---------- LOGO ----------
 @st.cache_data
@@ -13,14 +15,22 @@ def get_image_base64(image_path):
     except Exception:
         return ""
 
-import os
 logo_base64 = get_image_base64(os.path.join(os.path.dirname(__file__), "parking_logo_flat.png"))
 
 # ---------- PAGE CONFIG ----------
 st.set_page_config(page_title="ParkOS", layout="wide", page_icon="🅿️", initial_sidebar_state="collapsed")
 
 # ---------- AUTO REFRESH ----------
-st_autorefresh(interval=30000, key="refresh")
+st_autorefresh(interval=10000, key="refresh")
+
+# ---------- SUPABASE ----------
+@st.cache_resource
+def init_supabase() -> Client:
+    url = st.secrets["SUPABASE_URL"]
+    key = st.secrets["SUPABASE_KEY"]
+    return create_client(url, key)
+
+supabase = init_supabase()
 
 # ---------- STYLESHEET ----------
 st.markdown("""
@@ -62,10 +72,19 @@ html, body, .stApp { background: var(--bg)!important; font-family: var(--font); 
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- SENSOR SIMULATION ----------
+# ---------- SENSOR DATA ----------
+@st.cache_data(ttl=10, show_spinner=False)
+def fetch_sensor_data():
+    try:
+        res = supabase.table("sensors").select("slot_id, is_occupied").execute()
+        return {r["slot_id"]: r["is_occupied"] for r in res.data}
+    except Exception:
+        return {}
+
+# ---------- SIMULATION (Zone A & B) ----------
 SENSOR_INTERVAL_MINUTES = 10
 
-def _get_sensor_state():
+def _get_simulated_state():
     interval_seconds = SENSOR_INTERVAL_MINUTES * 60
     bucket = int(_time.time() // interval_seconds)
 
@@ -75,20 +94,34 @@ def _get_sensor_state():
 
     zone_a = {f"A{r}{c}": _is_occupied(f"zA{r}{c}") for r in range(1, 4) for c in range(1, 5)}
     zone_b = {f"B{r}{c}": _is_occupied(f"zB{r}{c}") for r in range(1, 5) for c in range(1, 4)}
-    zone_c = {f"C{r}{c}": _is_occupied(f"zC{r}{c}") for r in range(1, 4) for c in range(1, 4)}
-    return zone_a, zone_b, zone_c
+    return zone_a, zone_b
 
+def get_zone_c(sensor_data):
+    # Real data for C11, C12, C13
+    c11 = sensor_data.get("C11", False)
+    c12 = sensor_data.get("C12", False)
+    c13 = sensor_data.get("C13", False)
+
+    # Duplicate across all 9 slots
+    return {
+        "C11": c11, "C12": c12, "C13": c13,
+        "C21": c11, "C22": c12, "C23": c13,
+        "C31": c11, "C32": c12, "C33": c13,
+    }
+
+# ---------- DISPLAY HELPERS ----------
 def _count(zone):
     total = len(zone)
     occ = sum(zone.values())
     return total - occ, occ, total
 
-def _slot_html(slot_id, occupied):
+def _slot_html(slot_id, occupied, real=False):
     color = "#EF4444" if occupied else "#10B981"
     bg = "rgba(239,68,68,0.12)" if occupied else "rgba(16,185,129,0.10)"
     border = "rgba(239,68,68,0.35)" if occupied else "rgba(16,185,129,0.35)"
     icon = "🔴" if occupied else "🟢"
     label = slot_id[1:]
+    badge = "<span style='font-size:0.45rem;color:#6366F1;'>●</span>" if real else ""
     return f"""<div style="
         background:{bg};
         border:1.5px solid {border};
@@ -102,10 +135,11 @@ def _slot_html(slot_id, occupied):
         min-width:0;
     ">
         <span style="font-size:0.7rem;">{icon}</span>
-        <span style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;font-weight:700;color:{color};">{label}</span>
+        <span style="font-family:'JetBrains Mono',monospace;font-size:0.6rem;font-weight:700;color:{color};">{label}{badge}</span>
     </div>"""
 
-def _zone_card(zone_name, zone_dict, rows, cols, description):
+def _zone_card(zone_name, zone_dict, rows, cols, description, real_slots=None):
+    real_slots = real_slots or []
     free, occ, total = _count(zone_dict)
     pct_free = int(free / total * 100) if total > 0 else 0
     bar_color = "#10B981" if pct_free > 40 else ("#F59E0B" if pct_free > 15 else "#EF4444")
@@ -114,7 +148,7 @@ def _zone_card(zone_name, zone_dict, rows, cols, description):
         slots_html += f'<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:6px;margin-bottom:6px;">'
         for c in range(1, cols + 1):
             sid = f"{zone_name[-1]}{r}{c}"
-            slots_html += _slot_html(sid, zone_dict.get(sid, False))
+            slots_html += _slot_html(sid, zone_dict.get(sid, False), real=(sid in real_slots))
         slots_html += "</div>"
     return f"""
     <div style="background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:1rem 1rem 0.875rem; flex:1; min-width:0;">
@@ -140,15 +174,18 @@ def _zone_card(zone_name, zone_dict, rows, cols, description):
     """
 
 def render_live_parking():
-    zone_a, zone_b, zone_c = _get_sensor_state()
+    sensor_data = fetch_sensor_data()
+    zone_a, zone_b = _get_simulated_state()
+    zone_c = get_zone_c(sensor_data)
+
     col1, col2, col3 = st.columns(3)
     with col1:
         st.markdown(_zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4"), unsafe_allow_html=True)
     with col2:
         st.markdown(_zone_card("Zone B", zone_b, rows=4, cols=3, description="Block 4 × 3"), unsafe_allow_html=True)
     with col3:
-        st.markdown(_zone_card("Zone C", zone_c, rows=3, cols=3, description="Block 3 × 3"), unsafe_allow_html=True)
-        
+        st.markdown(_zone_card("Zone C", zone_c, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["C11","C12","C13"]), unsafe_allow_html=True)
+
 # ---------- HEADER ----------
 st.markdown(f"""
 <div style="display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.25rem 0 1rem; margin-bottom:2rem; border-bottom:1px solid var(--border);">
@@ -161,7 +198,9 @@ st.markdown(f"""
 """, unsafe_allow_html=True)
 
 # ---------- SUMMARY STATS ----------
-zone_a, zone_b, zone_c = _get_sensor_state()
+sensor_data = fetch_sensor_data()
+zone_a, zone_b = _get_simulated_state()
+zone_c = get_zone_c(sensor_data)
 all_zones = {**zone_a, **zone_b, **zone_c}
 total_slots = len(all_zones)
 total_free = sum(1 for v in all_zones.values() if not v)
