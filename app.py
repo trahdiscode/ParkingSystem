@@ -4,7 +4,8 @@ import time as _time
 from streamlit_autorefresh import st_autorefresh
 import base64
 import os
-from supabase import create_client, Client
+import firebase_admin
+from firebase_admin import credentials, db
 
 # ---------- LOGO ----------
 @st.cache_data
@@ -23,14 +24,18 @@ st.set_page_config(page_title="ParkOS", layout="wide", page_icon="🅿️", init
 # ---------- AUTO REFRESH ----------
 st_autorefresh(interval=10000, key="refresh")
 
-# ---------- SUPABASE ----------
+# ---------- FIREBASE INITIALIZATION ----------
 @st.cache_resource
-def init_supabase() -> Client:
-    url = st.secrets["SUPABASE_URL"]
-    key = st.secrets["SUPABASE_KEY"]
-    return create_client(url, key)
+def init_firebase():
+    if not firebase_admin._apps:
+        cred_dict = st.secrets["firebase"]
+        cred = credentials.Certificate(dict(cred_dict))
+        firebase_admin.initialize_app(cred, {
+            'databaseURL': st.secrets["firebase"]["databaseURL"]
+        })
+    return db
 
-supabase = init_supabase()
+init_firebase()
 
 # ---------- STYLESHEET ----------
 st.markdown("""
@@ -76,8 +81,11 @@ html, body, .stApp { background: var(--bg)!important; font-family: var(--font); 
 @st.cache_data(ttl=10, show_spinner=False)
 def fetch_sensor_data():
     try:
-        res = supabase.table("sensors").select("slot_id, is_occupied").execute()
-        return {r["slot_id"]: r["is_occupied"] for r in res.data}
+        ref = db.reference("sensors")
+        data = ref.get()
+        if data:
+            return {slot_id: val.get("is_occupied", False) for slot_id, val in data.items()}
+        return {}
     except Exception:
         return {}
 
