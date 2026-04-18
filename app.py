@@ -104,9 +104,9 @@ def _get_simulated_state():
     return zone_a, zone_c
 
 def get_zone_b(sensor_data):
-    b11 = sensor_data.get("B11", sensor_data.get("C11", False))
-    b12 = sensor_data.get("B12", sensor_data.get("C12", False))
-    b13 = sensor_data.get("B13", sensor_data.get("C13", False))
+    b11 = sensor_data.get("B11", False)
+    b12 = sensor_data.get("B12", False)
+    b13 = sensor_data.get("B13", False)
     return {
         "B11": b11, "B12": b12, "B13": b13,
         "B21": b11, "B22": b12, "B23": b13,
