@@ -346,8 +346,8 @@ function buildCard(key, isDominant) {{
         '<div class="zone-bar-bg"><div class="zone-bar-fill" style="width:' + pct + '%;background:' + bc + '"></div></div>' +
         (isDominant ? buildSlots(key, d.rows, d.cols, d.live) : '') +
         '<div class="zone-footer">' +
-            '<span class="f-green">\ud83d\udfe2 Available (' + free + ')</span>' +
-            '<span class="f-red">\ud83d\udd34 Occupied (' + occ + ')</span>' +
+            '<span class="f-green">&#x1F7E2; Available (' + free + ')</span>' +
+            '<span class="f-red">&#x1F534; Occupied (' + occ + ')</span>' +
             liveHTML +
         '</div>' +
         (!isDominant ? arrowHTML : '') +
