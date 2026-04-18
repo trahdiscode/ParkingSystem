@@ -218,54 +218,171 @@ def render_live_parking():
     zone_a, zone_c = _get_simulated_state()
     zone_b = get_zone_b(sensor_data)
 
-    # Column width ratios based on dominant zone
-    if ez == "A":
-        ratios = [3.0, 1.0, 1.0]
-    elif ez == "C":
-        ratios = [1.0, 1.0, 3.0]
-    else:
-        ratios = [1.0, 2.8, 1.0]
+    import json
 
-    col1, col2, col3 = st.columns(ratios)
+    def zone_payload(zone_dict):
+        return json.dumps({k: bool(v) for k, v in zone_dict.items()})
 
-    with col1:
-        dominant = (ez == "A")
-        scale   = 1.0 if dominant else 0.92
-        opacity = 1.0 if dominant else (0.5 if ez != "A" else 1.0)
-        html = _zone_card("A", "Zone A", zone_a, rows=3, cols=4,
-                          description="Block 3 × 4",
-                          scale=scale, opacity=opacity,
-                          dominant=dominant, clickable=not dominant)
-        st.markdown(html, unsafe_allow_html=True)
+    a_json = zone_payload(zone_a)
+    b_json = zone_payload(zone_b)
+    c_json = zone_payload(zone_c)
 
-    with col2:
-        dominant = (ez == "B")
-        scale   = 1.0 if dominant else 0.92
-        opacity = 1.0 if dominant else 0.5
-        html = _zone_card("B", "Zone B", zone_b, rows=3, cols=3,
-                          description="Live Sensor · 3 × 3",
-                          real_slots=["B11","B12","B13"],
-                          scale=scale, opacity=opacity,
-                          dominant=dominant, clickable=not dominant)
-        st.markdown(html, unsafe_allow_html=True)
+    html = f"""
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap');
+*{{box-sizing:border-box;margin:0;padding:0;}}
+body{{background:transparent;font-family:'Outfit',sans-serif;}}
+.zones{{display:flex;gap:12px;align-items:flex-start;width:100%;}}
+.zone-wrap{{transition:flex 0.45s cubic-bezier(0.4,0,0.2,1);overflow:hidden;}}
+.zone-wrap.dominant{{flex:3.2;}}
+.zone-wrap.side{{flex:1;cursor:pointer;}}
+.zone-card{{
+    background:#0F1117;
+    border:1px solid rgba(255,255,255,0.06);
+    border-radius:14px;
+    padding:1rem;
+    transition:border-color 0.3s,box-shadow 0.3s,opacity 0.3s;
+}}
+.zone-card.dominant{{
+    border-color:rgba(99,102,241,0.35);
+    box-shadow:0 0 0 1px rgba(99,102,241,0.10),0 12px 40px rgba(99,102,241,0.10);
+}}
+.zone-card.side{{opacity:0.55;}}
+.zone-card.side:hover{{opacity:0.8;border-color:rgba(255,255,255,0.12);}}
+.zone-header{{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.625rem;}}
+.zone-name{{font-size:0.75rem;font-weight:800;color:#F1F2F6;letter-spacing:-0.01em;}}
+.zone-desc{{font-size:0.58rem;color:#4B5068;letter-spacing:0.05em;text-transform:uppercase;margin-top:2px;}}
+.zone-count{{font-family:'JetBrains Mono',monospace;font-size:1rem;font-weight:700;text-align:right;}}
+.zone-count small{{font-size:0.62rem;color:#4B5068;font-weight:400;}}
+.zone-free-label{{font-size:0.58rem;color:#4B5068;margin-top:2px;text-align:right;}}
+.zone-bar-bg{{height:3px;background:#1E2230;border-radius:99px;margin-bottom:0.75rem;overflow:hidden;}}
+.zone-bar-fill{{height:100%;border-radius:99px;transition:width 0.5s ease;}}
+.slots-row{{display:grid;gap:6px;margin-bottom:6px;}}
+.slot{{
+    background:rgba(16,185,129,0.10);
+    border:1.5px solid rgba(16,185,129,0.35);
+    border-radius:8px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:4px;
+    padding:8px 4px;
+}}
+.slot.occ{{background:rgba(239,68,68,0.12);border-color:rgba(239,68,68,0.35);}}
+.slot-dot{{width:8px;height:8px;border-radius:50%;background:#10B981;}}
+.slot.occ .slot-dot{{background:#EF4444;}}
+.slot-label{{font-family:'JetBrains Mono',monospace;font-size:0.6rem;font-weight:700;color:#10B981;display:flex;align-items:center;gap:2px;}}
+.slot.occ .slot-label{{color:#EF4444;}}
+.live-dot{{width:5px;height:5px;border-radius:50%;background:#6366F1;display:inline-block;}}
+.zone-footer{{display:flex;gap:0.875rem;margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid rgba(255,255,255,0.06);font-size:0.62rem;}}
+.f-green{{color:#10B981;}}
+.f-red{{color:#EF4444;}}
+.f-accent{{color:#6366F1;}}
+</style>
+</head>
+<body>
+<div class="zones" id="zones"></div>
+<script>
+const DATA = {{
+  A: {{ dict: {a_json}, rows:3, cols:4, name:"Zone A", desc:"Block 3 × 4", live:[] }},
+  B: {{ dict: {b_json}, rows:3, cols:3, name:"Zone B", desc:"Live Sensor · 3 × 3", live:["B11","B12","B13"] }},
+  C: {{ dict: {c_json}, rows:4, cols:3, name:"Zone C", desc:"Block 4 × 3", live:[] }}
+}};
 
-    with col3:
-        dominant = (ez == "C")
-        scale   = 1.0 if dominant else 0.92
-        opacity = 1.0 if dominant else 0.5
-        html = _zone_card("C", "Zone C", zone_c, rows=4, cols=3,
-                          description="Block 4 × 3",
-                          scale=scale, opacity=opacity,
-                          dominant=dominant, clickable=not dominant)
-        st.markdown(html, unsafe_allow_html=True)
+let active = sessionStorage.getItem('parkos_zone') || 'B';
+
+function barColor(pct){{
+  return pct > 40 ? '#10B981' : pct > 15 ? '#F59E0B' : '#EF4444';
+}}
+
+function buildSlots(key, rows, cols, live){{
+  let html = '';
+  for(let r=1;r<=rows;r++){{
+    html += `<div class="slots-row" style="grid-template-columns:repeat(${{cols}},1fr)">`;
+    for(let c=1;c<=cols;c++){{
+      const sid = key+r+c;
+      const occ = DATA[key].dict[sid] || false;
+      const isLive = live.includes(sid);
+      html += `<div class="slot${{occ?' occ':''}}">
+        <div class="slot-dot"></div>
+        <div class="slot-label">${{r}}${{c}}${{isLive?'<span class="live-dot"></span>':''}}</div>
+      </div>`;
+    }}
+    html += '</div>';
+  }}
+  return html;
+}}
+
+function buildCard(key, isDominant){{
+  const d = DATA[key];
+  const entries = Object.values(d.dict);
+  const total = entries.length;
+  const occ = entries.filter(Boolean).length;
+  const free = total - occ;
+  const pct = Math.round(free/total*100);
+  const bc = barColor(pct);
+  const liveHTML = d.live.length ? '<span class="f-accent">● Live</span>' : '';
+  return `
+  <div class="zone-card ${{isDominant?'dominant':'side'}}">
+    <div class="zone-header">
+      <div>
+        <div class="zone-name">${{d.name}}</div>
+        <div class="zone-desc">${{d.desc}}</div>
+      </div>
+      <div>
+        <div class="zone-count" style="color:${{bc}}">${{free}}<small>/${{total}}</small></div>
+        <div class="zone-free-label">free slots</div>
+      </div>
+    </div>
+    <div class="zone-bar-bg"><div class="zone-bar-fill" style="width:${{pct}}%;background:${{bc}}"></div></div>
+    ${{buildSlots(key, d.rows, d.cols, d.live)}}
+    <div class="zone-footer">
+      <span class="f-green">🟢 Available (${{free}})</span>
+      <span class="f-red">🔴 Occupied (${{occ}})</span>
+      ${{liveHTML}}
+    </div>
+  </div>`;
+}}
+
+function render(){{
+  const zones = document.getElementById('zones');
+  zones.innerHTML = '';
+  ['A','B','C'].forEach(key => {{
+    const isDominant = key === active;
+    const wrap = document.createElement('div');
+    wrap.className = 'zone-wrap ' + (isDominant ? 'dominant' : 'side');
+    wrap.innerHTML = buildCard(key, isDominant);
+    if(!isDominant){{
+      wrap.addEventListener('click', () => {{
+        active = key;
+        sessionStorage.setItem('parkos_zone', key);
+        render();
+      }});
+    }}
+    zones.appendChild(wrap);
+  }});
+}}
+
+render();
+</script>
+</body>
+</html>
+"""
+    import streamlit.components.v1 as components
+    components.html(html, height=520, scrolling=False)
+
 
 # ---------- HEADER ----------
 st.markdown(f"""
-<div style="display:flex;align-items:center;justify-content:center;gap:1rem;padding:0.25rem 0 1rem;margin-bottom:2rem;border-bottom:1px solid var(--border);">
+<div style="display:flex;align-items:center;justify-content:center;gap:1rem;padding:0.25rem 0 1rem;margin-bottom:2rem;border-bottom:1px solid rgba(255,255,255,0.06);">
     <img src="data:image/png;base64,{logo_base64}" style="width:56px;height:56px;object-fit:contain;filter:drop-shadow(0 4px 16px rgba(99,102,241,0.5)) brightness(1.1);flex-shrink:0;">
     <div>
-        <div style="font-family:'Outfit',sans-serif;font-size:2.2rem;font-weight:800;color:var(--text-1);line-height:1;letter-spacing:-0.04em;">ParkOS</div>
-        <div style="font-family:'Outfit',sans-serif;font-size:0.8rem;color:var(--text-3);font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-top:4px;">Faculty Parking Portal</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:2.2rem;font-weight:800;color:#F1F2F6;line-height:1;letter-spacing:-0.04em;">ParkOS</div>
+        <div style="font-family:'Outfit',sans-serif;font-size:0.8rem;color:#4B5068;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;margin-top:4px;">Faculty Parking Portal</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
@@ -281,23 +398,23 @@ total_occ   = total_slots - total_free
 
 st.markdown(f"""
 <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.5rem;">
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;">
-        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.35rem;">Total Slots</div>
-        <div style="font-family:var(--font-mono);font-size:1.75rem;font-weight:600;color:var(--text-1);">{total_slots}</div>
+    <div style="background:#0F1117;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:1rem 1.25rem;">
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4B5068;margin-bottom:0.35rem;">Total Slots</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:600;color:#F1F2F6;">{total_slots}</div>
     </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;">
-        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.35rem;">Available</div>
-        <div style="font-family:var(--font-mono);font-size:1.75rem;font-weight:600;color:#10B981;">{total_free}</div>
+    <div style="background:#0F1117;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:1rem 1.25rem;">
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4B5068;margin-bottom:0.35rem;">Available</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:600;color:#10B981;">{total_free}</div>
     </div>
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;">
-        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.35rem;">Occupied</div>
-        <div style="font-family:var(--font-mono);font-size:1.75rem;font-weight:600;color:#EF4444;">{total_occ}</div>
+    <div style="background:#0F1117;border:1px solid rgba(255,255,255,0.06);border-radius:14px;padding:1rem 1.25rem;">
+        <div style="font-size:0.65rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#4B5068;margin-bottom:0.35rem;">Occupied</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:1.75rem;font-weight:600;color:#EF4444;">{total_occ}</div>
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 # ---------- LIVE LABEL ----------
-st.markdown('<div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.875rem;display:flex;align-items:center;gap:0.5rem;">Live Parking Status <span style="width:6px;height:6px;background:#10B981;border-radius:50%;display:inline-block;box-shadow:0 0 6px #10B981;"></span></div>', unsafe_allow_html=True)
+st.markdown('<div style="font-size:0.65rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#4B5068;margin-bottom:0.875rem;display:flex;align-items:center;gap:0.5rem;">Live Parking Status <span style="width:6px;height:6px;background:#10B981;border-radius:50%;display:inline-block;box-shadow:0 0 6px #10B981;"></span></div>', unsafe_allow_html=True)
 
 # ---------- LIVE DISPLAY ----------
 render_live_parking()
