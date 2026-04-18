@@ -189,23 +189,58 @@ def render_live_parking():
     zone_a, zone_c = _get_simulated_state()
     zone_b = get_zone_b(sensor_data)
 
-    # Extreme width ratio so the middle column takes over the screen
-    col1, col2, col3 = st.columns([1, 2.8, 1])
-    
+    # Track which zone is expanded
+    if "expanded_zone" not in st.session_state:
+        st.session_state.expanded_zone = None
+
+    def set_expanded(zone):
+        if st.session_state.expanded_zone == zone:
+            st.session_state.expanded_zone = None
+        else:
+            st.session_state.expanded_zone = zone
+
+    ez = st.session_state.expanded_zone
+
+    # Column ratios based on expanded zone
+    if ez == "A":
+        ratios = [2.8, 1.0, 0.4]
+    elif ez == "C":
+        ratios = [0.4, 1.0, 2.8]
+    else:
+        ratios = [1.0, 2.8, 1.0]
+
+    col1, col2, col3 = st.columns(ratios)
+
     with col1:
-        # Wrap Zone A to shrink its height/width and push it down
-        html_a = _zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
-        st.markdown(f'<div style="zoom: 0.75; opacity: 0.65; margin-top: 3rem;">{html_a}</div>', unsafe_allow_html=True)
-        
+        if ez == "A":
+            st.button("↙ Collapse Zone A", key="btn_a", on_click=set_expanded, args=("A",))
+            html_a = _zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
+            st.markdown(html_a, unsafe_allow_html=True)
+        elif ez == "C":
+            st.markdown('<div style="writing-mode:vertical-rl;transform:rotate(180deg);color:#4B5068;font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;text-align:center;padding:2rem 0;cursor:pointer;">Zone A</div>', unsafe_allow_html=True)
+            st.button("Expand", key="btn_a_expand", on_click=set_expanded, args=("A",))
+        else:
+            st.button("↗ Expand Zone A", key="btn_a", on_click=set_expanded, args=("A",))
+            html_a = _zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
+            st.markdown(f'<div style="zoom:0.75;opacity:0.65;margin-top:3rem;">{html_a}</div>', unsafe_allow_html=True)
+
     with col2:
-        # Pop Zone B out slightly to make it dominant with a glowing shadow
+        opacity = "0.45" if ez else "1"
         html_b = _zone_card("Zone B", zone_b, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["B11","B12","B13"])
-        st.markdown(f'<div style="transform: scale(1.02); box-shadow: 0 10px 40px rgba(99,102,241,0.15); border-radius: 14px;">{html_b}</div>', unsafe_allow_html=True)
-        
+        st.markdown(f'<div style="transform:scale(1.02);box-shadow:0 10px 40px rgba(99,102,241,0.15);border-radius:14px;opacity:{opacity};transition:opacity 0.3s;">{html_b}</div>', unsafe_allow_html=True)
+
     with col3:
-        # Wrap Zone C to shrink it and push it down
-        html_c = _zone_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
-        st.markdown(f'<div style="zoom: 0.75; opacity: 0.65; margin-top: 3rem;">{html_c}</div>', unsafe_allow_html=True)
+        if ez == "C":
+            st.button("↙ Collapse Zone C", key="btn_c", on_click=set_expanded, args=("C",))
+            html_c = _zone_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
+            st.markdown(html_c, unsafe_allow_html=True)
+        elif ez == "A":
+            st.markdown('<div style="writing-mode:vertical-rl;transform:rotate(180deg);color:#4B5068;font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;text-align:center;padding:2rem 0;cursor:pointer;">Zone C</div>', unsafe_allow_html=True)
+            st.button("Expand", key="btn_c_expand", on_click=set_expanded, args=("C",))
+        else:
+            st.button("↗ Expand Zone C", key="btn_c", on_click=set_expanded, args=("C",))
+            html_c = _zone_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
+            st.markdown(f'<div style="zoom:0.75;opacity:0.65;margin-top:3rem;">{html_c}</div>', unsafe_allow_html=True)
 
 # ---------- HEADER ----------
 st.markdown(f"""
