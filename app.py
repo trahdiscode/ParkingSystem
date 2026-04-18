@@ -190,7 +190,7 @@ def render_live_parking():
     zone_b = get_zone_b(sensor_data)
 
     if "expanded_zone" not in st.session_state:
-        st.session_state.expanded_zone = "B"
+        st.session_state.expanded_zone = "C"
 
     ez = st.session_state.expanded_zone
 
@@ -201,41 +201,39 @@ def render_live_parking():
     else:
         ratios = [0.9, 3.2, 0.9]
 
-    col1, col2, col3 = st.columns(ratios)
+    # ── inject button-as-card CSS once ──────────────────────────────────────
+    st.markdown("""
+    <style>
+    div[data-testid="stButton"] > button {
+        width: 100% !important;
+        background: #0F1117 !important;
+        border: 1px solid rgba(255,255,255,0.07) !important;
+        border-radius: 14px !important;
+        color: #F1F2F6 !important;
+        padding: 1.1rem 0.9rem !important;
+        text-align: left !important;
+        cursor: pointer !important;
+        transition: border-color 0.2s, background 0.2s !important;
+        height: auto !important;
+        white-space: pre-wrap !important;
+        font-family: 'Outfit', sans-serif !important;
+    }
+    div[data-testid="stButton"] > button:hover {
+        border-color: rgba(99,102,241,0.45) !important;
+        background: #13161F !important;
+    }
+    div[data-testid="stButton"] > button:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-    def _mini_card(zone_name, zone_dict, description, click_key):
+    def _mini_label(zone_name, zone_dict, description):
         free, occ, total = _count(zone_dict)
         pct = int(free / total * 100) if total > 0 else 0
-        bar_color = "#10B981" if pct > 40 else ("#F59E0B" if pct > 15 else "#EF4444")
-        st.markdown(f"""
-        <div style="
-            background:#0F1117;
-            border:1px solid rgba(255,255,255,0.07);
-            border-radius:14px;
-            padding:1rem 0.875rem;
-            cursor:pointer;
-            transition:all 0.2s;
-            height:100%;
-        ">
-            <div style="font-size:0.72rem;font-weight:800;color:#F1F2F6;letter-spacing:-0.01em;">{zone_name}</div>
-            <div style="font-size:0.55rem;color:#4B5068;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">{description}</div>
-            <div style="margin:0.75rem 0 0.5rem;">
-                <div style="height:3px;background:#1E2230;border-radius:99px;overflow:hidden;">
-                    <div style="height:100%;width:{pct}%;background:{bar_color};border-radius:99px;"></div>
-                </div>
-            </div>
-            <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:{bar_color};">{free}<span style="font-size:0.65rem;color:#4B5068;font-weight:400;">/{total}</span></div>
-            <div style="font-size:0.55rem;color:#4B5068;margin-top:2px;">free slots</div>
-            <div style="margin-top:0.75rem;display:flex;gap:6px;">
-                <span style="font-size:0.58rem;color:#10B981;">🟢 {free}</span>
-                <span style="font-size:0.58rem;color:#EF4444;">🔴 {occ}</span>
-            </div>
-            <div style="margin-top:0.75rem;font-size:0.55rem;color:#6366F1;letter-spacing:0.05em;">TAP TO EXPAND →</div>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("", key=click_key, help=f"Expand {zone_name}"):
-            st.session_state.expanded_zone = zone_name[-1]
-            st.rerun()
+        bar = "#10B981" if pct > 40 else ("#F59E0B" if pct > 15 else "#EF4444")
+        return f"{zone_name}\n{description}\n\n{free}/{total} free\n{'█' * int(pct/14)}{'░' * (7 - int(pct/14))}\n\n🟢 {free}  🔴 {occ}\n\n→ tap to expand"
 
     def _full_card(zone_name, zone_dict, rows, cols, description, real_slots=None):
         real_slots = real_slots or []
@@ -253,40 +251,30 @@ def render_live_parking():
                 bg = "rgba(239,68,68,0.10)" if occupied else "rgba(16,185,129,0.09)"
                 border = "rgba(239,68,68,0.30)" if occupied else "rgba(16,185,129,0.28)"
                 is_live = sid in real_slots
-                live_dot = f'<span style="width:5px;height:5px;background:#6366F1;border-radius:50%;display:inline-block;margin-left:2px;"></span>' if is_live else ""
-                label = f"{r}{c}"
+                live_dot = '<span style="width:5px;height:5px;background:#6366F1;border-radius:50%;display:inline-block;margin-left:3px;vertical-align:middle;"></span>' if is_live else ""
                 slots_html += f"""
-                <div style="
-                    background:{bg};
-                    border:1.5px solid {border};
-                    border-radius:9px;
-                    display:flex;
-                    flex-direction:column;
-                    align-items:center;
-                    justify-content:center;
-                    gap:5px;
-                    padding:10px 6px;
-                ">
+                <div style="background:{bg};border:1.5px solid {border};border-radius:9px;
+                    display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    gap:5px;padding:12px 6px;">
                     <div style="width:9px;height:9px;border-radius:50%;background:{color};"></div>
-                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:700;color:{color};display:flex;align-items:center;">{label}{live_dot}</div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:700;
+                        color:{color};display:flex;align-items:center;">{r}{c}{live_dot}</div>
                 </div>"""
             slots_html += "</div>"
 
+        live_legend = '<span style="font-size:0.62rem;color:#6366F1;">● Live Sensor</span>' if real_slots else ""
+
         st.markdown(f"""
-        <div style="
-            background:#0F1117;
-            border:1px solid rgba(99,102,241,0.25);
-            border-radius:14px;
-            padding:1.25rem;
-            box-shadow:0 0 0 1px rgba(99,102,241,0.10), 0 12px 40px rgba(99,102,241,0.08);
-        ">
+        <div style="background:#0F1117;border:1px solid rgba(99,102,241,0.28);border-radius:14px;
+            padding:1.25rem;box-shadow:0 0 0 1px rgba(99,102,241,0.08),0 12px 40px rgba(99,102,241,0.07);">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem;">
                 <div>
                     <div style="font-size:0.85rem;font-weight:800;color:#F1F2F6;letter-spacing:-0.02em;">{zone_name}</div>
                     <div style="font-size:0.6rem;color:#4B5068;text-transform:uppercase;letter-spacing:0.07em;margin-top:3px;">{description}</div>
                 </div>
                 <div style="text-align:right;">
-                    <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:{bar_color};line-height:1;">{free}<span style="font-size:0.7rem;color:#4B5068;font-weight:400;">/{total}</span></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;
+                        color:{bar_color};line-height:1;">{free}<span style="font-size:0.7rem;color:#4B5068;font-weight:400;">/{total}</span></div>
                     <div style="font-size:0.58rem;color:#4B5068;margin-top:2px;">free slots</div>
                 </div>
             </div>
@@ -297,32 +285,36 @@ def render_live_parking():
             <div style="display:flex;gap:1rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,0.05);margin-top:0.25rem;">
                 <span style="font-size:0.62rem;color:#10B981;">🟢 Available ({free})</span>
                 <span style="font-size:0.62rem;color:#EF4444;">🔴 Occupied ({occ})</span>
-                {'<span style="font-size:0.62rem;color:#6366F1;">● Live Sensor</span>' if real_slots else ''}
+                {live_legend}
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        if st.button("", key=f"collapse_{zone_name[-1]}", help="Click another zone to switch focus"):
-            pass
+    col1, col2, col3 = st.columns(ratios)
 
-    # --- Render columns ---
     with col1:
         if ez == "A":
             _full_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
         else:
-            _mini_card("Zone A", zone_a, "Block 3 × 4", click_key="expand_A")
+            if st.button(_mini_label("Zone A", zone_a, "Block 3 × 4"), key="btn_A"):
+                st.session_state.expanded_zone = "A"
+                st.rerun()
 
     with col2:
         if ez == "B":
             _full_card("Zone B", zone_b, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["B11","B12","B13"])
         else:
-            _mini_card("Zone B", zone_b, "Live Sensor · 3×3", click_key="expand_B")
+            if st.button(_mini_label("Zone B", zone_b, "Live Sensor · 3×3"), key="btn_B"):
+                st.session_state.expanded_zone = "B"
+                st.rerun()
 
     with col3:
         if ez == "C":
             _full_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
         else:
-            _mini_card("Zone C", zone_c, "Block 4 × 3", click_key="expand_C")
+            if st.button(_mini_label("Zone C", zone_c, "Block 4 × 3"), key="btn_C"):
+                st.session_state.expanded_zone = "C"
+                st.rerun()
 
 # ---------- HEADER ----------
 st.markdown(f"""
