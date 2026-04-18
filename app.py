@@ -186,17 +186,23 @@ def render_live_parking():
     zone_a, zone_b = _get_simulated_state()
     zone_c = get_zone_c(sensor_data)
 
-    # [1, 2.2, 1] makes the middle column significantly wider than the sides
-    col1, col2, col3 = st.columns([1, 2.2, 1]) 
+    # 1. Extreme width ratio so the middle column takes over the screen
+    col1, col2, col3 = st.columns([1, 2.8, 1])
     
     with col1:
-        st.markdown(_zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4"), unsafe_allow_html=True)
+        # 2. Wrap Zone A to shrink its height/width and push it down
+        html_a = _zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
+        st.markdown(f'<div style="zoom: 0.75; opacity: 0.65; margin-top: 3rem;">{html_a}</div>', unsafe_allow_html=True)
         
     with col2:
-        st.markdown(_zone_card("Zone C", zone_c, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["C11","C12","C13"]), unsafe_allow_html=True)
+        # 3. Pop Zone C out slightly to make it dominant with a glowing shadow
+        html_c = _zone_card("Zone C", zone_c, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["C11","C12","C13"])
+        st.markdown(f'<div style="transform: scale(1.02); box-shadow: 0 10px 40px rgba(99,102,241,0.15); border-radius: 14px;">{html_c}</div>', unsafe_allow_html=True)
         
     with col3:
-        st.markdown(_zone_card("Zone B", zone_b, rows=4, cols=3, description="Block 4 × 3"), unsafe_allow_html=True)
+        # 4. Wrap Zone B to shrink it and push it down
+        html_b = _zone_card("Zone B", zone_b, rows=4, cols=3, description="Block 4 × 3")
+        st.markdown(f'<div style="zoom: 0.75; opacity: 0.65; margin-top: 3rem;">{html_b}</div>', unsafe_allow_html=True)
 
 
 # ---------- HEADER ----------
