@@ -89,7 +89,7 @@ def fetch_sensor_data():
     except Exception:
         return {}
 
-# ---------- SIMULATION (Zone A & B) ----------
+# ---------- SIMULATION (Zone A & C) ----------
 SENSOR_INTERVAL_MINUTES = 10
 
 def _get_simulated_state():
@@ -100,21 +100,24 @@ def _get_simulated_state():
         h = int(hashlib.md5(f"{bucket}-{hash_id}".encode()).hexdigest(), 16)
         return (h % 100) < 45
 
+    # Left Column (Zone A)
     zone_a = {f"A{r}{c}": _is_occupied(f"zA{r}{c}") for r in range(1, 4) for c in range(1, 5)}
-    zone_b = {f"B{r}{c}": _is_occupied(f"zB{r}{c}") for r in range(1, 5) for c in range(1, 4)}
-    return zone_a, zone_b
+    
+    # Right Column (Now Zone C)
+    zone_c = {f"C{r}{c}": _is_occupied(f"zC{r}{c}") for r in range(1, 5) for c in range(1, 4)}
+    return zone_a, zone_c
 
-def get_zone_c(sensor_data):
-    # Real data for C11, C12, C13
-    c11 = sensor_data.get("C11", False)
-    c12 = sensor_data.get("C12", False)
-    c13 = sensor_data.get("C13", False)
+def get_zone_b(sensor_data):
+    # Middle Column (Now Zone B). 
+    # Fallback to C11, C12, C13 if Firebase hasn't been manually renamed yet
+    b11 = sensor_data.get("B11", sensor_data.get("C11", False))
+    b12 = sensor_data.get("B12", sensor_data.get("C12", False))
+    b13 = sensor_data.get("B13", sensor_data.get("C13", False))
 
-    # Duplicate across all 9 slots
     return {
-        "C11": c11, "C12": c12, "C13": c13,
-        "C21": c11, "C22": c12, "C23": c13,
-        "C31": c11, "C32": c12, "C33": c13,
+        "B11": b11, "B12": b12, "B13": b13,
+        "B21": b11, "B22": b12, "B23": b13,
+        "B31": b11, "B32": b12, "B33": b13,
     }
 
 # ---------- DISPLAY HELPERS ----------
@@ -183,27 +186,26 @@ def _zone_card(zone_name, zone_dict, rows, cols, description, real_slots=None):
 
 def render_live_parking():
     sensor_data = fetch_sensor_data()
-    zone_a, zone_b = _get_simulated_state()
-    zone_c = get_zone_c(sensor_data)
+    zone_a, zone_c = _get_simulated_state()
+    zone_b = get_zone_b(sensor_data)
 
-    # 1. Extreme width ratio so the middle column takes over the screen
+    # Extreme width ratio so the middle column takes over the screen
     col1, col2, col3 = st.columns([1, 2.8, 1])
     
     with col1:
-        # 2. Wrap Zone A to shrink its height/width and push it down
+        # Wrap Zone A to shrink its height/width and push it down
         html_a = _zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
         st.markdown(f'<div style="zoom: 0.75; opacity: 0.65; margin-top: 3rem;">{html_a}</div>', unsafe_allow_html=True)
         
     with col2:
-        # 3. Pop Zone C out slightly to make it dominant with a glowing shadow
-        html_c = _zone_card("Zone C", zone_c, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["C11","C12","C13"])
-        st.markdown(f'<div style="transform: scale(1.02); box-shadow: 0 10px 40px rgba(99,102,241,0.15); border-radius: 14px;">{html_c}</div>', unsafe_allow_html=True)
+        # Pop Zone B out slightly to make it dominant with a glowing shadow
+        html_b = _zone_card("Zone B", zone_b, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["B11","B12","B13"])
+        st.markdown(f'<div style="transform: scale(1.02); box-shadow: 0 10px 40px rgba(99,102,241,0.15); border-radius: 14px;">{html_b}</div>', unsafe_allow_html=True)
         
     with col3:
-        # 4. Wrap Zone B to shrink it and push it down
-        html_b = _zone_card("Zone B", zone_b, rows=4, cols=3, description="Block 4 × 3")
-        st.markdown(f'<div style="zoom: 0.75; opacity: 0.65; margin-top: 3rem;">{html_b}</div>', unsafe_allow_html=True)
-
+        # Wrap Zone C to shrink it and push it down
+        html_c = _zone_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
+        st.markdown(f'<div style="zoom: 0.75; opacity: 0.65; margin-top: 3rem;">{html_c}</div>', unsafe_allow_html=True)
 
 # ---------- HEADER ----------
 st.markdown(f"""
@@ -218,8 +220,8 @@ st.markdown(f"""
 
 # ---------- SUMMARY STATS ----------
 sensor_data = fetch_sensor_data()
-zone_a, zone_b = _get_simulated_state()
-zone_c = get_zone_c(sensor_data)
+zone_a, zone_c = _get_simulated_state()
+zone_b = get_zone_b(sensor_data)
 all_zones = {**zone_a, **zone_b, **zone_c}
 total_slots = len(all_zones)
 total_free = sum(1 for v in all_zones.values() if not v)
