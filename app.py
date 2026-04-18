@@ -189,58 +189,140 @@ def render_live_parking():
     zone_a, zone_c = _get_simulated_state()
     zone_b = get_zone_b(sensor_data)
 
-    # Track which zone is expanded
     if "expanded_zone" not in st.session_state:
-        st.session_state.expanded_zone = None
-
-    def set_expanded(zone):
-        if st.session_state.expanded_zone == zone:
-            st.session_state.expanded_zone = None
-        else:
-            st.session_state.expanded_zone = zone
+        st.session_state.expanded_zone = "B"
 
     ez = st.session_state.expanded_zone
 
-    # Column ratios based on expanded zone
     if ez == "A":
-        ratios = [2.8, 1.0, 0.4]
+        ratios = [3.2, 0.9, 0.9]
     elif ez == "C":
-        ratios = [0.4, 1.0, 2.8]
+        ratios = [0.9, 0.9, 3.2]
     else:
-        ratios = [1.0, 2.8, 1.0]
+        ratios = [0.9, 3.2, 0.9]
 
     col1, col2, col3 = st.columns(ratios)
 
+    def _mini_card(zone_name, zone_dict, description, click_key):
+        free, occ, total = _count(zone_dict)
+        pct = int(free / total * 100) if total > 0 else 0
+        bar_color = "#10B981" if pct > 40 else ("#F59E0B" if pct > 15 else "#EF4444")
+        st.markdown(f"""
+        <div style="
+            background:#0F1117;
+            border:1px solid rgba(255,255,255,0.07);
+            border-radius:14px;
+            padding:1rem 0.875rem;
+            cursor:pointer;
+            transition:all 0.2s;
+            height:100%;
+        ">
+            <div style="font-size:0.72rem;font-weight:800;color:#F1F2F6;letter-spacing:-0.01em;">{zone_name}</div>
+            <div style="font-size:0.55rem;color:#4B5068;text-transform:uppercase;letter-spacing:0.05em;margin-top:2px;">{description}</div>
+            <div style="margin:0.75rem 0 0.5rem;">
+                <div style="height:3px;background:#1E2230;border-radius:99px;overflow:hidden;">
+                    <div style="height:100%;width:{pct}%;background:{bar_color};border-radius:99px;"></div>
+                </div>
+            </div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:1.4rem;font-weight:700;color:{bar_color};">{free}<span style="font-size:0.65rem;color:#4B5068;font-weight:400;">/{total}</span></div>
+            <div style="font-size:0.55rem;color:#4B5068;margin-top:2px;">free slots</div>
+            <div style="margin-top:0.75rem;display:flex;gap:6px;">
+                <span style="font-size:0.58rem;color:#10B981;">🟢 {free}</span>
+                <span style="font-size:0.58rem;color:#EF4444;">🔴 {occ}</span>
+            </div>
+            <div style="margin-top:0.75rem;font-size:0.55rem;color:#6366F1;letter-spacing:0.05em;">TAP TO EXPAND →</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("", key=click_key, help=f"Expand {zone_name}"):
+            st.session_state.expanded_zone = zone_name[-1]
+            st.rerun()
+
+    def _full_card(zone_name, zone_dict, rows, cols, description, real_slots=None):
+        real_slots = real_slots or []
+        free, occ, total = _count(zone_dict)
+        pct = int(free / total * 100) if total > 0 else 0
+        bar_color = "#10B981" if pct > 40 else ("#F59E0B" if pct > 15 else "#EF4444")
+
+        slots_html = ""
+        for r in range(1, rows + 1):
+            slots_html += f'<div style="display:grid;grid-template-columns:repeat({cols},1fr);gap:8px;margin-bottom:8px;">'
+            for c in range(1, cols + 1):
+                sid = f"{zone_name[-1]}{r}{c}"
+                occupied = zone_dict.get(sid, False)
+                color = "#EF4444" if occupied else "#10B981"
+                bg = "rgba(239,68,68,0.10)" if occupied else "rgba(16,185,129,0.09)"
+                border = "rgba(239,68,68,0.30)" if occupied else "rgba(16,185,129,0.28)"
+                is_live = sid in real_slots
+                live_dot = f'<span style="width:5px;height:5px;background:#6366F1;border-radius:50%;display:inline-block;margin-left:2px;"></span>' if is_live else ""
+                label = f"{r}{c}"
+                slots_html += f"""
+                <div style="
+                    background:{bg};
+                    border:1.5px solid {border};
+                    border-radius:9px;
+                    display:flex;
+                    flex-direction:column;
+                    align-items:center;
+                    justify-content:center;
+                    gap:5px;
+                    padding:10px 6px;
+                ">
+                    <div style="width:9px;height:9px;border-radius:50%;background:{color};"></div>
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;font-weight:700;color:{color};display:flex;align-items:center;">{label}{live_dot}</div>
+                </div>"""
+            slots_html += "</div>"
+
+        st.markdown(f"""
+        <div style="
+            background:#0F1117;
+            border:1px solid rgba(99,102,241,0.25);
+            border-radius:14px;
+            padding:1.25rem;
+            box-shadow:0 0 0 1px rgba(99,102,241,0.10), 0 12px 40px rgba(99,102,241,0.08);
+        ">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0.75rem;">
+                <div>
+                    <div style="font-size:0.85rem;font-weight:800;color:#F1F2F6;letter-spacing:-0.02em;">{zone_name}</div>
+                    <div style="font-size:0.6rem;color:#4B5068;text-transform:uppercase;letter-spacing:0.07em;margin-top:3px;">{description}</div>
+                </div>
+                <div style="text-align:right;">
+                    <div style="font-family:'JetBrains Mono',monospace;font-size:1.6rem;font-weight:700;color:{bar_color};line-height:1;">{free}<span style="font-size:0.7rem;color:#4B5068;font-weight:400;">/{total}</span></div>
+                    <div style="font-size:0.58rem;color:#4B5068;margin-top:2px;">free slots</div>
+                </div>
+            </div>
+            <div style="height:3px;background:#1E2230;border-radius:99px;margin-bottom:1rem;overflow:hidden;">
+                <div style="height:100%;width:{pct}%;background:{bar_color};border-radius:99px;"></div>
+            </div>
+            {slots_html}
+            <div style="display:flex;gap:1rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,0.05);margin-top:0.25rem;">
+                <span style="font-size:0.62rem;color:#10B981;">🟢 Available ({free})</span>
+                <span style="font-size:0.62rem;color:#EF4444;">🔴 Occupied ({occ})</span>
+                {'<span style="font-size:0.62rem;color:#6366F1;">● Live Sensor</span>' if real_slots else ''}
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if st.button("", key=f"collapse_{zone_name[-1]}", help="Click another zone to switch focus"):
+            pass
+
+    # --- Render columns ---
     with col1:
         if ez == "A":
-            st.button("↙ Collapse Zone A", key="btn_a", on_click=set_expanded, args=("A",))
-            html_a = _zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
-            st.markdown(html_a, unsafe_allow_html=True)
-        elif ez == "C":
-            st.markdown('<div style="writing-mode:vertical-rl;transform:rotate(180deg);color:#4B5068;font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;text-align:center;padding:2rem 0;cursor:pointer;">Zone A</div>', unsafe_allow_html=True)
-            st.button("Expand", key="btn_a_expand", on_click=set_expanded, args=("A",))
+            _full_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
         else:
-            st.button("↗ Expand Zone A", key="btn_a", on_click=set_expanded, args=("A",))
-            html_a = _zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4")
-            st.markdown(f'<div style="zoom:0.75;opacity:0.65;margin-top:3rem;">{html_a}</div>', unsafe_allow_html=True)
+            _mini_card("Zone A", zone_a, "Block 3 × 4", click_key="expand_A")
 
     with col2:
-        opacity = "0.45" if ez else "1"
-        html_b = _zone_card("Zone B", zone_b, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["B11","B12","B13"])
-        st.markdown(f'<div style="transform:scale(1.02);box-shadow:0 10px 40px rgba(99,102,241,0.15);border-radius:14px;opacity:{opacity};transition:opacity 0.3s;">{html_b}</div>', unsafe_allow_html=True)
+        if ez == "B":
+            _full_card("Zone B", zone_b, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["B11","B12","B13"])
+        else:
+            _mini_card("Zone B", zone_b, "Live Sensor · 3×3", click_key="expand_B")
 
     with col3:
         if ez == "C":
-            st.button("↙ Collapse Zone C", key="btn_c", on_click=set_expanded, args=("C",))
-            html_c = _zone_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
-            st.markdown(html_c, unsafe_allow_html=True)
-        elif ez == "A":
-            st.markdown('<div style="writing-mode:vertical-rl;transform:rotate(180deg);color:#4B5068;font-size:0.7rem;font-weight:800;letter-spacing:0.1em;text-transform:uppercase;text-align:center;padding:2rem 0;cursor:pointer;">Zone C</div>', unsafe_allow_html=True)
-            st.button("Expand", key="btn_c_expand", on_click=set_expanded, args=("C",))
+            _full_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
         else:
-            st.button("↗ Expand Zone C", key="btn_c", on_click=set_expanded, args=("C",))
-            html_c = _zone_card("Zone C", zone_c, rows=4, cols=3, description="Block 4 × 3")
-            st.markdown(f'<div style="zoom:0.75;opacity:0.65;margin-top:3rem;">{html_c}</div>', unsafe_allow_html=True)
+            _mini_card("Zone C", zone_c, "Block 4 × 3", click_key="expand_C")
 
 # ---------- HEADER ----------
 st.markdown(f"""
