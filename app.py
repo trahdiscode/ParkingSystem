@@ -186,13 +186,18 @@ def render_live_parking():
     zone_a, zone_b = _get_simulated_state()
     zone_c = get_zone_c(sensor_data)
 
-    col1, col2, col3 = st.columns(3)
+    # [1, 2.2, 1] makes the middle column significantly wider than the sides
+    col1, col2, col3 = st.columns([1, 2.2, 1]) 
+    
     with col1:
         st.markdown(_zone_card("Zone A", zone_a, rows=3, cols=4, description="Block 3 × 4"), unsafe_allow_html=True)
+        
     with col2:
-        st.markdown(_zone_card("Zone B", zone_b, rows=4, cols=3, description="Block 4 × 3"), unsafe_allow_html=True)
-    with col3:
         st.markdown(_zone_card("Zone C", zone_c, rows=3, cols=3, description="Live Sensor · 3 × 3", real_slots=["C11","C12","C13"]), unsafe_allow_html=True)
+        
+    with col3:
+        st.markdown(_zone_card("Zone B", zone_b, rows=4, cols=3, description="Block 4 × 3"), unsafe_allow_html=True)
+
 
 # ---------- HEADER ----------
 st.markdown(f"""
